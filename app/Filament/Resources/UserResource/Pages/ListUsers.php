@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
+use App\Filament\Resources\UserResource\Widgets\CustomInfoWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
@@ -14,6 +15,14 @@ class ListUsers extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
+        ];
+    }
+
+    // ✅ هذه هي الطريقة الصحيحة لعرض الودجت
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            CustomInfoWidget::class,
         ];
     }
 }

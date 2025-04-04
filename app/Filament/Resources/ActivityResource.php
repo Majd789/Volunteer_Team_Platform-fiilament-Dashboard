@@ -7,8 +7,13 @@ use App\Filament\Resources\ActivityResource\RelationManagers;
 use App\Models\Activity;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -19,7 +24,10 @@ class ActivityResource extends Resource
 {
     protected static ?string $model = Activity::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-presentation-chart-line';
+    protected static ?string $navigationGroup = 'Stystem Managment';
+    protected static ?int $navigationSort = 1;
+
 
     public static function form(Form $form): Form
     {
@@ -32,15 +40,14 @@ class ActivityResource extends Resource
                     ->required()
                     ->maxLength(65535)
                     ->columnSpanFull(),
-               
-                // استخدام FileUpload بدلاً من ImageUpload
+
                 FileUpload::make('photo')  // مكون تحميل الصورة
                     ->image()  // التأكد من تحديد أن الملف هو صورة
                     ->disk('public')  // تحديد التخزين المحلي في `storage/app/public`
                     ->directory('activity_photos')  // تحديد المجلد الذي سيتم تخزين الصور فيه
-                    ->required()  // إذا كنت ترغب في جعل تحميل الصورة إلزاميًا
-                    ->maxSize(1024)  // تعيين الحد الأقصى لحجم الصورة (بالبايت)
-                    ->columnSpanFull(),  // جعل المكون يأخذ كامل العرض في النموذج
+                    ->required()  
+                    ->maxSize(1024)  
+                    ->columnSpanFull(), 
                 Forms\Components\DatePicker::make('start_date')
                     ->required(),
                 Forms\Components\DatePicker::make('end_date')
@@ -57,18 +64,27 @@ class ActivityResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('title')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('start_date')
-                    ->date()
-                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('description')
                     ->formatStateUsing(function ($state) {
                         return substr($state, 0, 50) . '...'; // اقتصاص النص
                     }),
-                // إضافة عمود عرض الصورة هنا
-                ImageColumn::make('photo')  // إضافة عمود لعرض الصورة
-                    ->disk('public')  // تحديد مكان تخزين الصور (public)
-                    ->width(100)  // تحديد عرض الصورة (اختياري)
-                    ->height(100)  // تحديد ارتفاع الصورة (اختياري)
+
+                Tables\Columns\TextColumn::make('NO Team Member')
+                    ->counts('registrations')
+                ->label('NO Team Member'),
+
+                ImageColumn::make('photo')
+                    ->disk('public')
+                    ->getStateUsing(fn ($record) => asset('storage/' . $record->photo))// تأكد من أن المسار صحيح
+                    ->height(40)
+                    ->circular()
+                    ->visibility('private')
+                    ->extraImgAttributes(['loading' => 'lazy']),
+
+
+                Tables\Columns\TextColumn::make('start_date')
+                    ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('end_date')
                     ->date()
@@ -95,6 +111,48 @@ class ActivityResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                ImageEntry::make('photo')
+                    ->label('Activity Icon')
+                    ->disk('public')
+                    ->visibility('private')
+                    ->extraImgAttributes(['loading' => 'lazy', 'style' => 'width: 100%; height: auto;'])
+                    ->getStateUsing(fn ($record) => asset('storage/' . $record->photo))
+                    ->columnSpan('full'),
+
+                Section::make("Activity Public Information")
+                    ->schema([
+                        TextEntry::make('title')
+                            ->label('Title'),
+                        TextEntry::make('description')
+                            ->label('Description'),
+
+                    ]) ,
+                Section::make("Activity Date Information")
+                    ->schema([
+                        TextEntry::make('start_date')
+                            ->label('Start Date '),
+                        TextEntry::make('end_date')
+                            ->label('End Date'),
+                    ])->columns(2) ,
+
+                    Section::make("Activity Gallery")
+                    ->schema([
+                        // عرض الصور باستخدام ImageEntry مع رابط الصورة
+                        \Filament\Infolists\Components\Grid::make()
+                            ->columns(3) // تحديد عدد الأعمدة التي تظهر فيها الصور
+                            ->schema(fn ($record) => $record->gallery->map(fn ($image) => ImageEntry::make('image')
+                                ->getStateUsing(fn () => asset('storage/gallery_media/' . $image->media_url))  // المسار الصحيح للصور
+                                ->extraImgAttributes(['style' => 'width: 100%; height: auto;'])  // تخصيص أسلوب الصورة
+                                ->columnSpan('full')
+                            )->toArray()), // تحويل الـ Collection إلى مصفوفة
+                    ])
+                    ->columns(2),
             ]);
     }
 
